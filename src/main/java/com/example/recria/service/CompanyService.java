@@ -6,7 +6,10 @@ import com.example.recria.dto.EventResponse;
 import com.example.recria.entity.Company;
 import com.example.recria.entity.Event;
 import com.example.recria.repository.CompanyRepository;
+import com.example.recria.repository.EventRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -19,9 +22,11 @@ public class CompanyService {
     public static final String COMPANY_NOT_FOUND = "企業情報が見つかりません";
 
     private final CompanyRepository companyRepository;
+    private final EventRepository eventRepository;
 
-    public CompanyService(CompanyRepository companyRepository) {
+    public CompanyService(CompanyRepository companyRepository, EventRepository eventRepository) {
         this.companyRepository = companyRepository;
+        this.eventRepository = eventRepository;
     }
 
     /** ログインユーザーの企業を企業名で検索する。キーワードが空なら全件を返す。 */
@@ -30,6 +35,21 @@ public class CompanyService {
         return companyRepository.findAll(userId, keyword).stream()
                 .map(company -> toCompanyResponse(company, null))
                 .toList();
+    }
+
+    /** 企業詳細を紐づく予定一覧つきで取得する。本人以外・存在しない企業は404。 */
+    public CompanyResponse getDetail(Long userId, Long companyId) {
+        Company company = findOwnCompany(userId, companyId);
+        List<EventResponse> events = eventRepository.findByCompanyId(company.getCompanyId()).stream()
+                .map(event -> toEventResponse(event, company.getCompanyName()))
+                .toList();
+        return toCompanyResponse(company, events);
+    }
+
+    /** ログインユーザー本人の企業を取得する。見つからなければ404とする。 */
+    Company findOwnCompany(Long userId, Long companyId) {
+        return companyRepository.findByIdAndUserId(companyId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, COMPANY_NOT_FOUND));
     }
 
     static CompanyResponse toCompanyResponse(Company company, List<EventResponse> events) {

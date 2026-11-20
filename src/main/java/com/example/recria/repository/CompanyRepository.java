@@ -50,6 +50,12 @@ public class CompanyRepository {
                 "FROM companies WHERE company_id = ?", rowMapper, companyId).stream().findFirst();
     }
 
+    /** ログインユーザー本人の企業を企業IDで取得する。他人の企業は取得できない。 */
+    public Optional<Company> findByIdAndUserId(Long companyId, Long userId) {
+        return jdbcTemplate.query("SELECT company_id, user_id, company_name, company_info, company_memo, created_at, updated_at " +
+                "FROM companies WHERE company_id = ? AND user_id = ?", rowMapper, companyId, userId).stream().findFirst();
+    }
+
     /** 企業を登録し、自動採番されたIDを返す。 */
     public Long create(Company company) {
         KeyHolder keyHolder = new GeneratedKeyHolder();

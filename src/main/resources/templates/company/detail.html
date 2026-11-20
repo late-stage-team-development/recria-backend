@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('企業詳細')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header(${company.companyName}, '/company')}"></header>
+<div th:replace="~{fragments/layout :: flash}"></div>
+
+<div class="card">
+    <div class="sub">企業情報</div>
+    <div class="pre" th:text="${#strings.isEmpty(company.companyInfo)} ? '未入力' : ${company.companyInfo}">企業情報</div>
+    <div class="sub">メモ</div>
+    <div class="pre" th:text="${#strings.isEmpty(company.companyMemo)} ? '未入力' : ${company.companyMemo}">メモ</div>
+</div>
+<a th:href="@{/company/{id}/edit(id=${company.companyId})}" class="btn btn-sub">企業情報を編集</a>
+
+<h2 class="section-title">予定一覧</h2>
+<div th:if="${company.events == null or company.events.isEmpty()}" class="empty">予定はありません</div>
+<div th:each="event : ${company.events}" class="card">
+    <div class="title">
+        <span th:text="${event.eventName}">一次面接</span>
+        <span class="tag" th:if="${!#strings.isEmpty(event.eventTag)}" th:text="${event.eventTag}">面接</span>
+    </div>
+    <div class="sub">
+        <span th:text="${#temporals.format(event.startAt, 'yyyy/MM/dd(E) HH:mm')}">2026/12/01 10:00</span>
+        <span th:if="${event.endAt != null}" th:text="'〜 ' + ${#temporals.format(event.endAt, 'HH:mm')}">〜 11:00</span>
+    </div>
+    <div class="sub pre" th:if="${!#strings.isEmpty(event.eventMemo)}" th:text="${event.eventMemo}">メモ</div>
+    <div class="sub" th:if="${!#strings.isEmpty(event.result)}" th:text="'結果：' + ${event.result}">結果：合格</div>
+    <a th:if="${event.eventTag == '面接'}"
+       th:href="@{/company/{cid}/{eid}/reflection(cid=${company.companyId},eid=${event.eventId})}">振り返りを見る・書く</a>
+</div>
+
+<nav th:replace="~{fragments/layout :: tabbar('company')}"></nav>
+</body>
+</html>

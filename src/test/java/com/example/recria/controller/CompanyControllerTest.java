@@ -1,6 +1,7 @@
 package com.example.recria.controller;
 
 import com.example.recria.dto.CompanyResponse;
+import com.example.recria.dto.EventResponse;
 import com.example.recria.entity.User;
 import com.example.recria.repository.UserRepository;
 import com.example.recria.service.CompanyService;
@@ -10,8 +11,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -99,5 +104,45 @@ class CompanyControllerTest {
         mockMvc.perform(get("/company").with(user(EMAIL)))
                 .andExpect(status().isInternalServerError())
                 .andExpect(content().string(containsString("エラーが発生しました。時間をおいて再度お試しください")));
+    }
+
+    @Test
+    void detail_企業と予定一覧を表示する() throws Exception {
+        CompanyResponse company = company(5L, "テスト株式会社");
+        company.setCompanyInfo("IT企業");
+        EventResponse event = new EventResponse();
+        event.setEventId(50L);
+        event.setCompanyId(5L);
+        event.setEventName("一次面接");
+        event.setEventTag("面接");
+        event.setStartAt(OffsetDateTime.of(2026, 12, 1, 10, 0, 0, 0, ZoneOffset.ofHours(9)));
+        company.setEvents(List.of(event));
+        when(companyService.getDetail(USER_ID, 5L)).thenReturn(company);
+
+        mockMvc.perform(get("/company/5").with(user(EMAIL)))
+                .andExpect(status().isOk())
+                .andExpect(view().name("company/detail"))
+                .andExpect(content().string(containsString("IT企業")))
+                .andExpect(content().string(containsString("一次面接")))
+                .andExpect(content().string(containsString("2026/12/01")))
+                .andExpect(content().string(containsString("/company/5/50/reflection")));
+    }
+
+    @Test
+    void detail_他人の企業や存在しない企業は404で企業情報が見つかりませんを表示する() throws Exception {
+        when(companyService.getDetail(USER_ID, 99L))
+                .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "企業情報が見つかりません"));
+
+        mockMvc.perform(get("/company/99").with(user(EMAIL)))
+                .andExpect(status().isNotFound())
+                .andExpect(view().name("error/404"))
+                .andExpect(content().string(containsString("企業情報が見つかりません")));
+    }
+
+    @Test
+    void detail_数値でないIDも404() throws Exception {
+        mockMvc.perform(get("/company/abc").with(user(EMAIL)))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string(containsString("企業情報が見つかりません")));
     }
 }

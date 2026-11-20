@@ -15,6 +15,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.ModelAndView;
@@ -44,6 +45,13 @@ public class CompanyController {
         model.addAttribute("companies", companies);
         model.addAttribute("searched", search.getKeyword() != null && !search.getKeyword().isBlank());
         return "company/list";
+    }
+
+    /** API-06 企業詳細（紐づく予定一覧も表示） */
+    @GetMapping("/company/{companyId}")
+    public String detail(@PathVariable Long companyId, Authentication auth, Model model) {
+        model.addAttribute("company", companyService.getDetail(currentUserId(auth), companyId));
+        return "company/detail";
     }
 
     /**
