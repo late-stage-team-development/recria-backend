@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('ホーム')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header('ホーム', null)}"></header>
+<div th:replace="~{fragments/layout :: flash}"></div>
+
+<!-- 期限3日前通知 -->
+<section th:if="${!home.notifications.isEmpty()}">
+    <h2 class="section-title">通知</h2>
+    <a th:each="n : ${home.notifications}" th:href="@{/company/{id}(id=${n.companyId})}" class="notice card-link">
+        <span th:text="${#temporals.format(n.startAt, 'MM/dd(E) HH:mm')}">12/01(火) 10:00</span>
+        <span th:text="${n.companyName} + '：' + ${n.eventName}">A社：一次面接</span>
+        が近づいています
+    </a>
+</section>
+
+<!-- 面接の振り返りが未入力のお知らせ -->
+<section th:if="${!home.unreflectedEvents.isEmpty()}">
+    <h2 class="section-title">お知らせ</h2>
+    <a th:each="u : ${home.unreflectedEvents}"
+       th:href="@{/company/{cid}/{eid}/reflection(cid=${u.companyId},eid=${u.eventId})}" class="notice card-link">
+        <span th:text="${u.companyName} + '：' + ${u.eventName}">A社：一次面接</span>
+        の振り返りを書きましょう
+    </a>
+</section>
+
+<h2 class="section-title">直近2週間の予定</h2>
+<div th:if="${home.upcomingEvents.isEmpty()}" class="empty" th:text="#{home.upcoming.empty}">直近2週間の予定はありません</div>
+<a th:each="e : ${home.upcomingEvents}" th:href="@{/company/{id}(id=${e.companyId})}" class="card card-link">
+    <div class="sub">
+        <span th:text="${#temporals.format(e.startAt, 'MM/dd(E) HH:mm')}">12/01(火) 10:00</span>
+        <span th:if="${e.endAt != null}" th:text="'〜 ' + ${#temporals.format(e.endAt, 'HH:mm')}">〜 11:00</span>
+    </div>
+    <div class="title">
+        <span th:text="${e.companyName} + '：' + ${e.eventName}">A社：一次面接</span>
+        <span class="tag" th:if="${!#strings.isEmpty(e.eventTag)}" th:text="${e.eventTag}">面接</span>
+    </div>
+</a>
+
+<a th:href="@{/register}" class="btn btn-sub">＋ 企業と予定を登録</a>
+
+<nav th:replace="~{fragments/layout :: tabbar('home')}"></nav>
+</body>
+</html>
