@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<!-- 共通部品。各画面から th:replace で読み込む。 -->
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title} + ' | recria'">recria</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+
+<!-- 画面上部のタイトル。backUrl を渡すと戻るリンクを表示する。 -->
+<header th:fragment="header(title, backUrl)" class="app-header">
+    <a th:if="${backUrl != null}" th:href="@{${backUrl}}" class="back-link">&lt; 戻る</a>
+    <h1 th:text="${title}">タイトル</h1>
+</header>
+
+<!-- flash attribute の完了メッセージ -->
+<div th:fragment="flash" th:if="${message != null}" class="flash" th:text="${message}">完了しました</div>
+
+<!-- 下タブ。active には home / event / company / account のいずれかを渡す。 -->
+<nav th:fragment="tabbar(active)" class="tabbar">
+    <a th:href="@{/home}" th:classappend="${active == 'home'} ? 'active'">ホーム</a>
+    <a th:href="@{/event}" th:classappend="${active == 'event'} ? 'active'">予定</a>
+    <a th:href="@{/company}" th:classappend="${active == 'company'} ? 'active'">企業一覧</a>
+    <a th:href="@{/account}" th:classappend="${active == 'account'} ? 'active'">アカウント</a>
+</nav>
+
+</body>
+</html>
