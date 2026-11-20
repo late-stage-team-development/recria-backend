@@ -1,5 +1,6 @@
 package com.example.recria.service;
 
+import com.example.recria.dto.CompanyRegisterRequest;
 import com.example.recria.dto.CompanyRequest;
 import com.example.recria.dto.CompanyResponse;
 import com.example.recria.dto.CompanySearchRequest;
@@ -10,11 +11,14 @@ import com.example.recria.repository.CompanyRepository;
 import com.example.recria.repository.EventRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /** 企業の検索・登録・更新・削除を行うService。 */
 @Service
@@ -81,6 +85,45 @@ public class CompanyService {
         if (companyRepository.update(company) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, COMPANY_NOT_FOUND);
         }
+    }
+
+    /** 指定した時間帯と重なる自分の予定を取得する（FR-06）。 */
+    public List<EventResponse> findOverlaps(Long userId, OffsetDateTime startAt, OffsetDateTime endAt) {
+        List<Event> overlaps = eventRepository.findOverlaps(userId, startAt, endAt, null);
+        if (overlaps.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, String> companyNames = companyRepository.findAll(userId).stream()
+                .collect(Collectors.toMap(Company::getCompanyId, Company::getCompanyName));
+        return overlaps.stream()
+                .map(event -> toEventResponse(event, companyNames.get(event.getCompanyId())))
+                .toList();
+    }
+
+    /** 企業と最初の予定を1トランザクションで登録し、企業IDを返す（API-04）。 */
+    @Transactional
+    public Long register(Long userId, CompanyRegisterRequest request) {
+        Company company = new Company();
+        company.setUserId(userId);
+        company.setCompanyName(normalize(request.getCompanyName()));
+        company.setCompanyInfo(request.getCompanyInfo());
+        company.setCompanyMemo(request.getCompanyMemo());
+        Long companyId = companyRepository.create(company);
+
+        Event event = new Event();
+        event.setCompanyId(companyId);
+        event.setEventName(request.getEventName());
+        event.setStartAt(request.getStartAt());
+        event.setEndAt(request.getEndAt());
+        event.setNotifyAt(request.getNotifyAt());
+        event.setEventMemo(request.getEventMemo());
+        event.setEventTag(emptyToNull(request.getEventTag()));
+        eventRepository.create(event);
+        return companyId;
+    }
+
+    private static String emptyToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     /** 企業名の前後の空白を取り除く（同名判定と保存で同じ値を使うため）。 */

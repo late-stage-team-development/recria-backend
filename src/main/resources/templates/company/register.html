@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('企業登録')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header('企業登録', '/company')}"></header>
+
+<form th:action="@{/register}" method="post" th:object="${form}">
+    <div th:if="${duplicateWarning == true or (overlaps != null and !overlaps.isEmpty())}" class="warning">
+        <p th:if="${duplicateWarning}">同じ名前の企業がすでに登録されています。</p>
+        <div th:if="${overlaps != null and !overlaps.isEmpty()}">
+            <p>次の予定と時間が重なっています。</p>
+            <ul>
+                <li th:each="o : ${overlaps}"
+                    th:text="${o.companyName} + '：' + ${o.eventName} + '（' + ${#temporals.format(o.startAt, 'MM/dd HH:mm')} + (${o.endAt != null} ? '〜' + ${#temporals.format(o.endAt, 'HH:mm')} : '') + '）'">
+                    A社：一次面接（12/01 10:00〜11:00）
+                </li>
+            </ul>
+        </div>
+        <p>このまま登録しますか？</p>
+        <button type="submit" name="confirmed" value="true" class="btn btn-danger">それでも登録する</button>
+    </div>
+
+    <h2 class="section-title">企業情報</h2>
+    <div class="field">
+        <label for="companyName">会社名（必須）</label>
+        <input type="text" th:field="*{companyName}" maxlength="100">
+        <div class="error-text" th:if="${#fields.hasErrors('companyName')}" th:errors="*{companyName}"></div>
+    </div>
+    <div class="field">
+        <label for="companyInfo">企業情報</label>
+        <textarea th:field="*{companyInfo}" maxlength="1000"></textarea>
+        <div class="error-text" th:if="${#fields.hasErrors('companyInfo')}" th:errors="*{companyInfo}"></div>
+    </div>
+    <div class="field">
+        <label for="companyMemo">メモ</label>
+        <textarea th:field="*{companyMemo}" maxlength="1000"></textarea>
+        <div class="error-text" th:if="${#fields.hasErrors('companyMemo')}" th:errors="*{companyMemo}"></div>
+    </div>
+
+    <h2 class="section-title">最初の予定</h2>
+    <div class="field">
+        <label for="eventName">予定名（必須）</label>
+        <input type="text" th:field="*{eventName}" maxlength="100" placeholder="例：一次面接">
+        <div class="error-text" th:if="${#fields.hasErrors('eventName')}" th:errors="*{eventName}"></div>
+    </div>
+    <div class="field">
+        <label for="eventTag">種類</label>
+        <select th:field="*{eventTag}">
+            <option value="">選択しない</option>
+            <option value="説明会">説明会</option>
+            <option value="面接">面接</option>
+            <option value="ES締切">ES締切</option>
+            <option value="インターン">インターン</option>
+            <option value="その他">その他</option>
+        </select>
+        <div class="error-text" th:if="${#fields.hasErrors('eventTag')}" th:errors="*{eventTag}"></div>
+    </div>
+    <div class="field">
+        <label for="startAt">開始日時（必須）</label>
+        <input type="datetime-local" th:field="*{startAt}">
+        <div class="error-text" th:if="${#fields.hasErrors('startAt')}" th:errors="*{startAt}"></div>
+    </div>
+    <div class="field">
+        <label for="endAt">終了日時</label>
+        <input type="datetime-local" th:field="*{endAt}">
+        <div class="error-text" th:if="${#fields.hasErrors('endAt')}" th:errors="*{endAt}"></div>
+        <div class="error-text" th:if="${#fields.hasErrors('endAtValid')}" th:errors="*{endAtValid}"></div>
+    </div>
+    <div class="field">
+        <label for="notifyAt">通知日時（未入力なら通知しません）</label>
+        <input type="datetime-local" th:field="*{notifyAt}">
+        <div class="error-text" th:if="${#fields.hasErrors('notifyAt')}" th:errors="*{notifyAt}"></div>
+        <div class="error-text" th:if="${#fields.hasErrors('notifyAtValid')}" th:errors="*{notifyAtValid}"></div>
+    </div>
+    <div class="field">
+        <label for="eventMemo">予定メモ</label>
+        <textarea th:field="*{eventMemo}" maxlength="1000"></textarea>
+        <div class="error-text" th:if="${#fields.hasErrors('eventMemo')}" th:errors="*{eventMemo}"></div>
+    </div>
+
+    <button type="submit" class="btn">登録する</button>
+</form>
+
+<nav th:replace="~{fragments/layout :: tabbar('company')}"></nav>
+</body>
+</html>

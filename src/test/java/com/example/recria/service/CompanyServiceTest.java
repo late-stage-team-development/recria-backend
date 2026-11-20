@@ -1,6 +1,8 @@
 package com.example.recria.service;
 
+import com.example.recria.dto.CompanyRegisterRequest;
 import com.example.recria.dto.CompanyRequest;
+import com.example.recria.dto.EventResponse;
 import com.example.recria.dto.CompanyResponse;
 import com.example.recria.dto.CompanySearchRequest;
 import com.example.recria.entity.Company;
@@ -11,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -25,6 +28,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -160,5 +164,60 @@ class CompanyServiceTest {
 
         assertThat(form.getCompanyName()).isEqualTo("テスト株式会社");
         assertThat(form.getCompanyMemo()).isEqualTo("メモ");
+    }
+
+    @Test
+    void register_企業を保存したIDで最初の予定を保存する() {
+        CompanyRegisterRequest request = new CompanyRegisterRequest();
+        request.setCompanyName(" 新規株式会社 ");
+        request.setCompanyInfo("情報");
+        request.setEventName("説明会");
+        OffsetDateTime start = OffsetDateTime.of(2026, 12, 1, 10, 0, 0, 0, ZoneOffset.ofHours(9));
+        request.setStartAt(start);
+        request.setEndAt(start.plusHours(1));
+        request.setEventTag("");
+        when(companyRepository.create(any())).thenReturn(30L);
+
+        Long companyId = companyService.register(USER_ID, request);
+
+        assertThat(companyId).isEqualTo(30L);
+        ArgumentCaptor<Company> companyCaptor = ArgumentCaptor.forClass(Company.class);
+        ArgumentCaptor<Event> eventCaptor = ArgumentCaptor.forClass(Event.class);
+        InOrder order = inOrder(companyRepository, eventRepository);
+        order.verify(companyRepository).create(companyCaptor.capture());
+        order.verify(eventRepository).create(eventCaptor.capture());
+        assertThat(companyCaptor.getValue().getUserId()).isEqualTo(USER_ID);
+        assertThat(companyCaptor.getValue().getCompanyName()).isEqualTo("新規株式会社");
+        assertThat(eventCaptor.getValue().getCompanyId()).isEqualTo(30L);
+        assertThat(eventCaptor.getValue().getEventName()).isEqualTo("説明会");
+        assertThat(eventCaptor.getValue().getStartAt()).isEqualTo(start);
+        assertThat(eventCaptor.getValue().getEventTag()).isNull();
+    }
+
+    @Test
+    void register_Transactionalが付いている() throws Exception {
+        assertThat(CompanyService.class.getMethod("register", Long.class, CompanyRegisterRequest.class)
+                .isAnnotationPresent(org.springframework.transaction.annotation.Transactional.class)).isTrue();
+    }
+
+    @Test
+    void findOverlaps_重なる予定に企業名を付けて返す() {
+        OffsetDateTime start = OffsetDateTime.of(2026, 12, 1, 10, 0, 0, 0, ZoneOffset.ofHours(9));
+        when(eventRepository.findOverlaps(USER_ID, start, null, null)).thenReturn(List.of(event(7L, 2L, start, "面接")));
+        when(companyRepository.findAll(USER_ID)).thenReturn(List.of(company(2L, "B社")));
+
+        List<EventResponse> result = companyService.findOverlaps(USER_ID, start, null);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getCompanyName()).isEqualTo("B社");
+    }
+
+    @Test
+    void findOverlaps_重なりがなければ企業一覧を取得しない() {
+        OffsetDateTime start = OffsetDateTime.of(2026, 12, 1, 10, 0, 0, 0, ZoneOffset.ofHours(9));
+        when(eventRepository.findOverlaps(USER_ID, start, null, null)).thenReturn(List.of());
+
+        assertThat(companyService.findOverlaps(USER_ID, start, null)).isEmpty();
+        verify(companyRepository, never()).findAll(USER_ID);
     }
 }

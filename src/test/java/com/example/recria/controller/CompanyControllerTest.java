@@ -1,5 +1,6 @@
 package com.example.recria.controller;
 
+import com.example.recria.dto.CompanyRegisterRequest;
 import com.example.recria.dto.CompanyRequest;
 import com.example.recria.dto.CompanyResponse;
 import com.example.recria.dto.EventResponse;
@@ -219,5 +220,111 @@ class CompanyControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(content().string(containsString("企業情報が見つかりません")));
         verify(companyService, never()).update(any(), any(), any());
+    }
+
+    static final String FUTURE = OffsetDateTime.now(ZoneOffset.ofHours(9)).plusDays(10)
+            .withHour(10).withMinute(0).toLocalDateTime().toString().substring(0, 16);
+    static final String FUTURE_END = FUTURE.substring(0, 11) + "11:00";
+
+    org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder registerPost() {
+        return post("/register").with(user(EMAIL)).with(csrf())
+                .param("companyName", "新規株式会社")
+                .param("eventName", "一次面接")
+                .param("eventTag", "面接")
+                .param("startAt", FUTURE)
+                .param("endAt", FUTURE_END);
+    }
+
+    @Test
+    void registerForm_登録画面を表示する() throws Exception {
+        mockMvc.perform(get("/register").with(user(EMAIL)))
+                .andExpect(status().isOk())
+                .andExpect(view().name("company/register"))
+                .andExpect(content().string(containsString("最初の予定")));
+    }
+
+    @Test
+    void register_警告がなければ登録し詳細へリダイレクトする() throws Exception {
+        when(companyService.findOverlaps(eq(USER_ID), any(), any())).thenReturn(List.of());
+        when(companyService.register(eq(USER_ID), any())).thenReturn(30L);
+
+        mockMvc.perform(registerPost())
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/company/30"))
+                .andExpect(flash().attribute("message", "企業と予定を登録しました"));
+        verify(companyService).register(eq(USER_ID), argThat((CompanyRegisterRequest f) ->
+                f.getStartAt().getOffset().equals(ZoneOffset.ofHours(9))
+                        && f.getStartAt().toLocalDateTime().toString().startsWith(FUTURE)));
+    }
+
+    @Test
+    void register_同名企業があれば警告し登録しない() throws Exception {
+        when(companyService.hasDuplicateName(USER_ID, "新規株式会社", null)).thenReturn(true);
+        when(companyService.findOverlaps(eq(USER_ID), any(), any())).thenReturn(List.of());
+
+        mockMvc.perform(registerPost())
+                .andExpect(status().isOk())
+                .andExpect(view().name("company/register"))
+                .andExpect(content().string(containsString("同じ名前の企業がすでに登録されています")))
+                .andExpect(content().string(containsString("それでも登録する")))
+                .andExpect(content().string(containsString("value=\"" + FUTURE + "\"")));
+        verify(companyService, never()).register(any(), any());
+    }
+
+    @Test
+    void register_時間が重なる予定があれば警告し登録しない() throws Exception {
+        EventResponse overlap = new EventResponse();
+        overlap.setCompanyName("B社");
+        overlap.setEventName("説明会");
+        overlap.setStartAt(OffsetDateTime.of(2026, 12, 1, 10, 30, 0, 0, ZoneOffset.ofHours(9)));
+        when(companyService.findOverlaps(eq(USER_ID), any(), any())).thenReturn(List.of(overlap));
+
+        mockMvc.perform(registerPost())
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("次の予定と時間が重なっています")))
+                .andExpect(content().string(containsString("B社：説明会")));
+        verify(companyService, never()).register(any(), any());
+    }
+
+    @Test
+    void register_それでも登録するを選ぶと警告判定せずに登録する() throws Exception {
+        when(companyService.register(eq(USER_ID), any())).thenReturn(31L);
+
+        mockMvc.perform(registerPost().param("confirmed", "true"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/company/31"));
+        verify(companyService, never()).hasDuplicateName(any(), any(), any());
+        verify(companyService, never()).findOverlaps(any(), any(), any());
+    }
+
+    @Test
+    void register_必須未入力は項目ごとのメッセージを表示する() throws Exception {
+        mockMvc.perform(post("/register").with(user(EMAIL)).with(csrf())
+                        .param("companyName", "").param("eventName", "").param("startAt", ""))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("会社名を入力して下さい")))
+                .andExpect(content().string(containsString("予定名を入力して下さい")))
+                .andExpect(content().string(containsString("日時を選択して下さい")));
+        verify(companyService, never()).register(any(), any());
+    }
+
+    @Test
+    void register_過去日時と日時の前後関係のエラーを表示する() throws Exception {
+        mockMvc.perform(post("/register").with(user(EMAIL)).with(csrf())
+                        .param("companyName", "A社").param("eventName", "面接")
+                        .param("startAt", FUTURE)
+                        .param("endAt", FUTURE.substring(0, 11) + "09:00")
+                        .param("notifyAt", "2000-01-01T09:00"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("過去の日付は登録できません")))
+                .andExpect(content().string(containsString("終了日時は開始日時以降に設定してください")));
+
+        mockMvc.perform(post("/register").with(user(EMAIL)).with(csrf())
+                        .param("companyName", "A社").param("eventName", "面接")
+                        .param("startAt", FUTURE)
+                        .param("notifyAt", FUTURE_END))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("通知日時は予定日時より前に設定してください")));
+        verify(companyService, never()).register(any(), any());
     }
 }
