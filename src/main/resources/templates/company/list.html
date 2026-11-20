@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('企業一覧')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header('企業一覧', null)}"></header>
+<div th:replace="~{fragments/layout :: flash}"></div>
+
+<form th:action="@{/company}" method="get" th:object="${search}" class="search-form">
+    <input type="search" th:field="*{keyword}" placeholder="企業名で検索" aria-label="企業名で検索">
+    <button type="submit" class="btn">検索</button>
+</form>
+<div class="error-text" th:if="${#fields.hasErrors('search.keyword')}" th:errors="${search.keyword}"></div>
+
+<a th:href="@{/register}" class="btn btn-sub">＋ 企業を登録</a>
+
+<div th:if="${companies.isEmpty() and !#fields.hasErrors('search.*')}" class="empty"
+     th:text="${searched} ? #{company.search.empty} : #{company.list.empty}">該当する企業がありません</div>
+
+<a th:each="company : ${companies}" th:href="@{/company/{id}(id=${company.companyId})}" class="card card-link">
+    <div class="title" th:text="${company.companyName}">企業名</div>
+    <div class="sub" th:if="${company.companyInfo != null and !company.companyInfo.isBlank()}"
+         th:text="${#strings.abbreviate(company.companyInfo, 40)}">企業情報</div>
+</a>
+
+<nav th:replace="~{fragments/layout :: tabbar('company')}"></nav>
+</body>
+</html>
