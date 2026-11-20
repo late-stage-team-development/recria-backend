@@ -56,6 +56,19 @@ public class CompanyRepository {
                 "FROM companies WHERE company_id = ? AND user_id = ?", rowMapper, companyId, userId).stream().findFirst();
     }
 
+    /**
+     * 同じユーザー内に同名の企業があるか判定する。
+     * 編集時は自分自身を除外するため excludeCompanyId を指定する（登録時は null）。
+     */
+    public boolean existsByUserIdAndCompanyName(Long userId, String companyName, Long excludeCompanyId) {
+        String sql = "SELECT EXISTS (SELECT 1 FROM companies WHERE user_id = ? AND company_name = ?" +
+                (excludeCompanyId == null ? "" : " AND company_id <> ?") + ")";
+        Boolean exists = excludeCompanyId == null
+                ? jdbcTemplate.queryForObject(sql, Boolean.class, userId, companyName)
+                : jdbcTemplate.queryForObject(sql, Boolean.class, userId, companyName, excludeCompanyId);
+        return Boolean.TRUE.equals(exists);
+    }
+
     /** 企業を登録し、自動採番されたIDを返す。 */
     public Long create(Company company) {
         KeyHolder keyHolder = new GeneratedKeyHolder();

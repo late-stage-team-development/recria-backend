@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('企業情報編集')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header('企業情報編集', ${'/company/' + companyId})}"></header>
+
+<form th:action="@{/company/{id}/edit(id=${companyId})}" method="post" th:object="${form}">
+    <div th:if="${duplicateWarning}" class="warning">
+        同じ名前の企業がすでに登録されています。このまま保存しますか？
+        <button type="submit" name="confirmDuplicate" value="true" class="btn btn-danger">それでも保存する</button>
+    </div>
+
+    <div class="field">
+        <label for="companyName">会社名（必須）</label>
+        <input type="text" th:field="*{companyName}" maxlength="100">
+        <div class="error-text" th:if="${#fields.hasErrors('companyName')}" th:errors="*{companyName}"></div>
+    </div>
+    <div class="field">
+        <label for="companyInfo">企業情報</label>
+        <textarea th:field="*{companyInfo}" maxlength="1000"></textarea>
+        <div class="error-text" th:if="${#fields.hasErrors('companyInfo')}" th:errors="*{companyInfo}"></div>
+    </div>
+    <div class="field">
+        <label for="companyMemo">メモ</label>
+        <textarea th:field="*{companyMemo}" maxlength="1000"></textarea>
+        <div class="error-text" th:if="${#fields.hasErrors('companyMemo')}" th:errors="*{companyMemo}"></div>
+    </div>
+    <button type="submit" class="btn" th:text="${duplicateWarning} ? '会社名を見直して保存' : '保存する'">保存する</button>
+</form>
+
+<nav th:replace="~{fragments/layout :: tabbar('company')}"></nav>
+</body>
+</html>

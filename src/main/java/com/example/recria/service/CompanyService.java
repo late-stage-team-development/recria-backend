@@ -1,5 +1,6 @@
 package com.example.recria.service;
 
+import com.example.recria.dto.CompanyRequest;
 import com.example.recria.dto.CompanyResponse;
 import com.example.recria.dto.CompanySearchRequest;
 import com.example.recria.dto.EventResponse;
@@ -44,6 +45,47 @@ public class CompanyService {
                 .map(event -> toEventResponse(event, company.getCompanyName()))
                 .toList();
         return toCompanyResponse(company, events);
+    }
+
+    /** 編集画面の初期値を取得する。本人以外・存在しない企業は404。 */
+    public CompanyRequest getForEdit(Long userId, Long companyId) {
+        Company company = findOwnCompany(userId, companyId);
+        CompanyRequest request = new CompanyRequest();
+        request.setCompanyName(company.getCompanyName());
+        request.setCompanyInfo(company.getCompanyInfo());
+        request.setCompanyMemo(company.getCompanyMemo());
+        return request;
+    }
+
+    /** 本人の企業であることを確認する。本人以外・存在しない企業は404。 */
+    public void checkOwner(Long userId, Long companyId) {
+        findOwnCompany(userId, companyId);
+    }
+
+    /**
+     * 同じユーザー内に同名の企業があるか判定する（VAL-03）。
+     * 編集時は excludeCompanyId に自分自身のIDを渡す。登録時は null。
+     */
+    public boolean hasDuplicateName(Long userId, String companyName, Long excludeCompanyId) {
+        return companyRepository.existsByUserIdAndCompanyName(userId, normalize(companyName), excludeCompanyId);
+    }
+
+    /** 企業情報を更新する。本人以外・存在しない企業は404。 */
+    public void update(Long userId, Long companyId, CompanyRequest request) {
+        Company company = new Company();
+        company.setCompanyId(companyId);
+        company.setUserId(userId);
+        company.setCompanyName(normalize(request.getCompanyName()));
+        company.setCompanyInfo(request.getCompanyInfo());
+        company.setCompanyMemo(request.getCompanyMemo());
+        if (companyRepository.update(company) == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, COMPANY_NOT_FOUND);
+        }
+    }
+
+    /** 企業名の前後の空白を取り除く（同名判定と保存で同じ値を使うため）。 */
+    static String normalize(String companyName) {
+        return companyName == null ? null : companyName.strip();
     }
 
     /** ログインユーザー本人の企業を取得する。見つからなければ404とする。 */

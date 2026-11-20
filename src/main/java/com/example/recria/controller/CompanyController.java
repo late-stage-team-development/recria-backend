@@ -1,5 +1,6 @@
 package com.example.recria.controller;
 
+import com.example.recria.dto.CompanyRequest;
 import com.example.recria.dto.CompanyResponse;
 import com.example.recria.dto.CompanySearchRequest;
 import com.example.recria.repository.UserRepository;
@@ -16,9 +17,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
 
@@ -52,6 +56,35 @@ public class CompanyController {
     public String detail(@PathVariable Long companyId, Authentication auth, Model model) {
         model.addAttribute("company", companyService.getDetail(currentUserId(auth), companyId));
         return "company/detail";
+    }
+
+    /** API-07 企業情報編集（表示） */
+    @GetMapping("/company/{companyId}/edit")
+    public String editForm(@PathVariable Long companyId, Authentication auth, Model model) {
+        model.addAttribute("form", companyService.getForEdit(currentUserId(auth), companyId));
+        model.addAttribute("companyId", companyId);
+        return "company/edit";
+    }
+
+    /** API-07 企業情報編集（保存）。同名企業があれば警告し、確認後に保存する。 */
+    @PostMapping("/company/{companyId}/edit")
+    public String edit(@PathVariable Long companyId,
+                       @Valid @ModelAttribute("form") CompanyRequest form, BindingResult bindingResult,
+                       @RequestParam(defaultValue = "false") boolean confirmDuplicate,
+                       Authentication auth, Model model, RedirectAttributes redirectAttributes) {
+        Long userId = currentUserId(auth);
+        companyService.checkOwner(userId, companyId);
+        model.addAttribute("companyId", companyId);
+        if (bindingResult.hasErrors()) {
+            return "company/edit";
+        }
+        if (!confirmDuplicate && companyService.hasDuplicateName(userId, form.getCompanyName(), companyId)) {
+            model.addAttribute("duplicateWarning", true);
+            return "company/edit";
+        }
+        companyService.update(userId, companyId, form);
+        redirectAttributes.addFlashAttribute("message", "企業情報を更新しました");
+        return "redirect:/company/" + companyId;
     }
 
     /**

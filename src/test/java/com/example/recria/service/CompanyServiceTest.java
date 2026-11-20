@@ -1,5 +1,6 @@
 package com.example.recria.service;
 
+import com.example.recria.dto.CompanyRequest;
 import com.example.recria.dto.CompanyResponse;
 import com.example.recria.dto.CompanySearchRequest;
 import com.example.recria.entity.Company;
@@ -9,6 +10,7 @@ import com.example.recria.repository.EventRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -113,5 +115,50 @@ class CompanyServiceTest {
                     assertThat(e.getReason()).isEqualTo("企業情報が見つかりません");
                 });
         verify(eventRepository, never()).findByCompanyId(any());
+    }
+
+    @Test
+    void hasDuplicateName_編集時は自分自身を除外し前後の空白を除いて判定する() {
+        when(companyRepository.existsByUserIdAndCompanyName(USER_ID, "テスト株式会社", 10L)).thenReturn(true);
+
+        assertThat(companyService.hasDuplicateName(USER_ID, "  テスト株式会社 ", 10L)).isTrue();
+    }
+
+    @Test
+    void update_user_idを条件に含めて更新する() {
+        CompanyRequest request = new CompanyRequest();
+        request.setCompanyName(" 新社名 ");
+        request.setCompanyInfo("新情報");
+        when(companyRepository.update(any())).thenReturn(1);
+
+        companyService.update(USER_ID, 10L, request);
+
+        ArgumentCaptor<Company> captor = ArgumentCaptor.forClass(Company.class);
+        verify(companyRepository).update(captor.capture());
+        assertThat(captor.getValue().getCompanyId()).isEqualTo(10L);
+        assertThat(captor.getValue().getUserId()).isEqualTo(USER_ID);
+        assertThat(captor.getValue().getCompanyName()).isEqualTo("新社名");
+        assertThat(captor.getValue().getCompanyInfo()).isEqualTo("新情報");
+    }
+
+    @Test
+    void update_更新件数0なら404() {
+        CompanyRequest request = new CompanyRequest();
+        request.setCompanyName("新社名");
+        when(companyRepository.update(any())).thenReturn(0);
+
+        assertThatThrownBy(() -> companyService.update(USER_ID, 10L, request))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("企業情報が見つかりません");
+    }
+
+    @Test
+    void getForEdit_現在の値を初期値にする() {
+        when(companyRepository.findByIdAndUserId(10L, USER_ID)).thenReturn(Optional.of(company(10L, "テスト株式会社")));
+
+        CompanyRequest form = companyService.getForEdit(USER_ID, 10L);
+
+        assertThat(form.getCompanyName()).isEqualTo("テスト株式会社");
+        assertThat(form.getCompanyMemo()).isEqualTo("メモ");
     }
 }
